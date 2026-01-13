@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>お小遣い帳 - 明細一覧</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background: #4CAF50;
+            color: white;
+            text-align: center;
+            padding: 1.2em;
+            font-size: 1.4em;
+        }
+
+        main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 30px auto;
+            gap: 25px;
+        }
+
+        section {
+            background: white;
+            padding: 20px;
+            width: 400px;
+            /* ← 横幅を少し広げました */
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.95em;
+            table-layout: auto;
+            /* ← 固定幅を解除し自動調整に変更 */
+        }
+
+        th,
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+            word-wrap: break-word;
+            white-space: nowrap;
+            /* ← 折り返しを防ぐ */
+        }
+
+        th {
+            background-color: #f0f0f0;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            background: #4CAF50;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 8px;
+        }
+
+        button:hover {
+            background: #43a047;
+        }
+
+        .blue-btn {
+            background: #2196F3;
+        }
+
+        .blue-btn:hover {
+            background: #1976D2;
+        }
+
+        .gray-btn {
+            background: #757575;
+        }
+
+        .gray-btn:hover {
+            background: #616161;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 25px;
+        }
+
+        canvas {
+            margin: 10px auto;
+            width: 260px !important;
+            height: 260px !important;
+            display: block;
+        }
+
+        #chartLabel {
+            margin-top: 10px;
+            text-align: center;
+            color: #555;
+            font-weight: 500;
+            font-size: 1em;
+        }
+    </style>
+</head>
+
+<body>
+    <header>家計簿サポートアプリ - 明細一覧</header>
+    <main>
+        <section>
+            <h2>支出明細</h2>
+
+            <label for="monthSelect">表示する月：</label>
+            <input type="month" id="monthSelect">
+            <button id="filterBtn" class="blue-btn">表示</button>
+
+            <table id="expenseTable">
+                <thead>
+                    <tr>
+                        <th>日付</th>
+                        <th>項目</th>
+                        <th>金額</th>
+                        <th>カテゴリ</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <p id="totalDisplay"></p>
+            <p id="balanceDisplay"></p>
+
+            <button id="toggleChartBtn" class="gray-btn">グラフを表示</button>
+            <canvas id="categoryChart" style="display:none;"></canvas>
+
+            <button class="blue-btn" onclick="location.href='index.html'">登録画面に戻る</button>
+        </section>
+    </main>
+
+    <script src="js/list.js"></script>
+</body>
+
+</html>

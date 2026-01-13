@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>お小遣い帳 - 登録画面</title>
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background: #4CAF50;
+            color: white;
+            text-align: center;
+            padding: 1.2em;
+            font-size: 1.4em;
+        }
+
+        main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 30px;
+            gap: 30px;
+        }
+
+        section {
+            background: white;
+            padding: 25px;
+            width: 360px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        input,
+        select,
+        button {
+            width: 90%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1em;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #43a047;
+        }
+
+        .link-button {
+            background: #2196F3;
+            margin-top: 15px;
+        }
+
+        .link-button:hover {
+            background: #1976D2;
+        }
+    </style>
+</head>
+
+<body>
+    <header>家計簿サポートアプリ - 登録画面</header>
+    <main>
+
+        <!-- お小遣い（収入）登録 -->
+        <section>
+            <h2>今月のお小遣い登録</h2>
+            <input type="number" id="allowanceInput" placeholder="お小遣い金額を入力（円）">
+            <button id="saveAllowanceBtn">お小遣いを保存</button>
+            <p id="allowanceDisplay"></p>
+        </section>
+
+        <!-- 支出登録 -->
+        <section>
+            <h2>支出の登録</h2>
+
+            <!-- 日付 -->
+            <input type="date" id="dateInput" />
+
+            <!-- 項目 -->
+            <input type="text" id="item" placeholder="項目（例：昼食）">
+
+            <!-- 金額 -->
+            <input type="number" id="amount" placeholder="金額（円）">
+
+            <!-- カテゴリ -->
+            <select id="category">
+                <option value="食費">食費</option>
+                <option value="交通費">交通費</option>
+                <option value="娯楽費">娯楽費</option>
+                <option value="その他">その他</option>
+            </select>
+
+            <button id="saveExpenseBtn">支出を保存</button>
+            <p id="balanceDisplay"></p>
+        </section>
+
+        <!-- 保存画面へのリンク -->
+        <section>
+            <h2>確認画面へ</h2>
+            <button class="link-button" onclick="location.href='list.html'">今月の明細を見る</button>
+        </section>
+
+    </main>
+
+    <!-- main.js を読み込む（同フォルダに置く） -->
+    <script src="js/main.js"></script>
+</body>
+
+</html>
