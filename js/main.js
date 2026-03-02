@@ -55,8 +55,14 @@
             return;
         }
 
+<<<<<<< HEAD
         // ✅ 月データを自動付与（タイムゾーンずれ防止のため文字列から直接取得）
         const monthKey = date.slice(0, 7);
+=======
+        // ✅ 月データを自動付与
+        const now = new Date(date);
+        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+>>>>>>> 4c0a4cb6356b44965b37547af93aa14d8da8af35
 
         const expenses = JSON.parse(localStorage.getItem("expenses") || "[]");
         expenses.push({ date, item, amount, category, month: monthKey });
