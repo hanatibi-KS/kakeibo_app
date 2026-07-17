@@ -160,6 +160,118 @@
             margin-top: 6px;
         }
 
+        /* === レシート読み取り === */
+        .ocr-hint {
+            font-size: 0.85em;
+            color: #777;
+            margin: 4px 0 10px;
+        }
+
+        /* ファイル選択ボタンを他のボタンと同じ見た目にする */
+        .file-label {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: #FF9800;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        .file-label:hover {
+            background: #F57C00;
+        }
+
+        #receiptInput {
+            display: none;
+        }
+
+        #receiptPreview {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+        }
+
+        .ocr-bar {
+            width: 100%;
+            height: 8px;
+            background: #e6e9ec;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        #ocrBarFill {
+            height: 100%;
+            width: 0%;
+            background: #FF9800;
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+
+        #ocrStatus {
+            font-size: 0.85em;
+            color: #777;
+            margin: 4px 0;
+        }
+
+        .ocr-result {
+            background: #fff8f0;
+            border: 1px solid #ffe0b2;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .ocr-result h4 {
+            margin: 0 0 8px;
+            color: #e65100;
+            font-size: 0.95em;
+        }
+
+        .ocr-found {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #333;
+            text-align: center;
+            margin: 8px 0;
+        }
+
+        .ocr-note {
+            font-size: 0.78em;
+            color: #999;
+            line-height: 1.5;
+        }
+
+        .ocr-raw {
+            font-size: 0.75em;
+            color: #666;
+            white-space: pre-wrap;
+            word-break: break-all;
+            background: #fafafa;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 6px;
+            max-height: 140px;
+            overflow-y: auto;
+            text-align: left;
+        }
+
+        .ocr-raw-toggle {
+            font-size: 0.8em;
+            color: #2196F3;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
         /* === 満足度セレクター === */
         .satisfaction-label {
             font-size: 0.9em;
@@ -221,6 +333,26 @@
             <p id="allowanceDisplay"></p>
         </section>
 
+        <!-- レシート読み取り（OCR） -->
+        <section>
+            <h2>レシートから登録</h2>
+            <p class="ocr-hint">レシートを撮影すると、金額と日付を自動で読み取って下の入力欄に入れます</p>
+
+            <label class="file-label" for="receiptInput">📷 レシートを撮影・選択</label>
+            <input type="file" id="receiptInput" accept="image/*">
+
+            <img id="receiptPreview" alt="レシートのプレビュー" style="display:none;">
+
+            <div id="ocrProgress" style="display:none;">
+                <div class="ocr-bar">
+                    <div id="ocrBarFill"></div>
+                </div>
+                <p id="ocrStatus"></p>
+            </div>
+
+            <div id="ocrResult" class="ocr-result" style="display:none;"></div>
+        </section>
+
         <!-- 支出登録 -->
         <section>
             <h2>支出の登録</h2>
@@ -262,8 +394,12 @@
 
     </main>
 
+    <!-- Tesseract.js（レシートOCR用。サイズが大きいのでCDNから読み込む） -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+
     <!-- main.js を読み込む（同フォルダに置く） -->
     <script src="js/main.js"></script>
+    <script src="js/ocr.js"></script>
 
     <!-- Service Worker を登録（オフライン動作を有効にする） -->
     <script>

@@ -8,7 +8,7 @@
 // ファイルを修正したら下の CACHE_NAME の数字を上げる（v1 → v2）。
 // そうするとスマホ側の古い保存分が捨てられ、新しいファイルに入れ替わる。
 
-const CACHE_NAME = "kakeibo-v2";
+const CACHE_NAME = "kakeibo-v3";
 
 // 最初に保存しておくファイル一覧（これだけあればオフラインで完全に動く）
 const ASSETS = [
@@ -17,6 +17,7 @@ const ASSETS = [
     "./list.html",
     "./js/main.js",
     "./js/list.js",
+    "./js/ocr.js",
     "./js/chart.min.js",
     "./manifest.json",
     "./icons/icon-192.png",
@@ -54,9 +55,19 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
         fetch(event.request)
             .then(response => {
-                // 取得できたら、次のオフラインに備えて保存を更新しておく
-                const copy = response.clone();
-                caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+                // 取得できたら、次のオフラインに備えて保存を更新しておく。
+                // ただし保存できないもの（他サイトの一部の応答など）はスキップする。
+                // これをやらないと cache.put でエラーになる。
+                const cacheable = response &&
+                    response.ok &&
+                    (response.type === "basic" || response.type === "cors");
+
+                if (cacheable) {
+                    const copy = response.clone();
+                    caches.open(CACHE_NAME)
+                        .then(cache => cache.put(event.request, copy))
+                        .catch(() => { /* 保存できなくてもアプリは動くので無視 */ });
+                }
                 return response;
             })
             .catch(() => {
