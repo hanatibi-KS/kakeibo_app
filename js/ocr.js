@@ -66,8 +66,11 @@
     // 「合計」を表す言葉（この行にある数字を最優先で採用する）
     const TOTAL_KEYWORD = /(合\s*計|お買\s*上|お買い上げ|総\s*額|税込\s*合?\s*計|ご請求)/;
 
-    // 金額と紛らわしい行（「お預り」「お釣り」は合計より大きい数字が載るため除外）
-    const EXCLUDE_KEYWORD = /(預|釣|つり|お返し|ポイント|point|残高|カード|クレジット|電話|TEL|〒|登録番号)/i;
+    // 金額と紛らわしい行を除外する。
+    // ・「お預り」「お釣り」「現金」… 合計より大きい数字が載ることがある
+    // ・「番号」「No」「取引」「会員」… 責任番号・伝票番号・会員番号などを
+    //   金額と誤認する事故が実際に起きたため除外
+    const EXCLUDE_KEYWORD = /(預|釣|つり|お返し|ポイント|point|残高|カード|クレジット|現金|電話|TEL|〒|番号|No\.|取引|会員|伝票|領収|レジ)/i;
 
     // 金額と間違えやすい数字（日付・時刻・電話番号）を先に取り除く。
     // これをやらないと「2026-07-10」の "2026" を金額として拾ってしまう。
@@ -80,12 +83,31 @@
             .replace(/\d{2,4}-\d{2,4}-\d{3,4}/g, " ");
     }
 
-    // 1行の中から金額らしき数字を全部取り出す
+    // 1行の中から金額らしき数字を全部取り出す。
+    // OCRは「¥」を「Y」と誤読することが多いので、Y付きの数字も金額とみなす。
     function findNumbers(line) {
         const cleaned = stripNoise(line);
-        const matches = cleaned.match(/[¥￥]\s*\d{1,3}(?:,\d{3})*|\d{1,3}(?:,\d{3})+|[¥￥]\s*\d+|\d{2,7}/g) || [];
+        const matches = cleaned.match(/[¥￥Yy]\s*\d{1,3}(?:,\d{3})*|\d{1,3}(?:,\d{3})+|[¥￥Yy]\s*\d+|\d{2,7}/g) || [];
         return matches
-            .map(s => Number(s.replace(/[¥￥,\s]/g, "")))
+            .map(s => Number(s.replace(/[¥￥Yy,\s]/g, "")))
+            .filter(n => !isNaN(n) && n > 0 && n < 10000000);
+    }
+
+    // 「金額らしい形」をした数字だけを取り出す（推定モード専用の厳しい版）。
+    //
+    // 「合計」の行が見つからないとき、以前は「一番大きい数字」を金額として
+    // いたが、それだとレシートの責任番号や伝票番号（例: 39910）を
+    // 金額として出してしまう事故が起きた。
+    // そこで推定のときは、
+    //   ・¥マーク付き（Yと誤読されたものも含む）… ¥580 / Y58
+    //   ・カンマ区切り … 1,234
+    // という"値段の見た目"をした数字だけを信用する。
+    // ただの数字の羅列（39910 など）は、金額かどうか判断できないので使わない。
+    function findPriceLikeNumbers(line) {
+        const cleaned = stripNoise(line);
+        const matches = cleaned.match(/[¥￥Yy]\s*\d{1,3}(?:,\d{3})*|[¥￥Yy]\s*\d+|\d{1,3}(?:,\d{3})+/g) || [];
+        return matches
+            .map(s => Number(s.replace(/[¥￥Yy,\s]/g, "")))
             .filter(n => !isNaN(n) && n > 0 && n < 10000000);
     }
 
@@ -107,11 +129,13 @@
             }
         }
 
-        // ② 見つからなければ、レシート全体で一番大きい数字を合計とみなす
+        // ② 見つからなければ「金額らしい形」の数字（¥付き・カンマ区切り）の中から
+        //    一番大きいものを合計とみなす。
+        //    形が金額らしくない数字は、番号類の可能性があるので採用しない。
         let best = null;
         for (const line of lines) {
             if (EXCLUDE_KEYWORD.test(line)) continue;
-            for (const n of findNumbers(line)) {
+            for (const n of findPriceLikeNumbers(line)) {
                 if (best === null || n > best) best = n;
             }
         }
@@ -357,7 +381,7 @@
                          <img src="${cropUrl}" alt="読み取った範囲" style="max-width:100%; border:1px solid #ddd; border-radius:4px;">`;
             }
         } else {
-            html += `<p class="ocr-note">⚠️ 金額を読み取れませんでした。手で入力してください。</p>`;
+            html += `<p class="ocr-note">⚠️ 金額を読み取れませんでした。<b>画像の上で合計の金額を指で囲んで「選択した範囲を読み取る」</b>を試すか、手で入力してください。</p>`;
             if (cropUrl) {
                 html += `<p class="ocr-note" style="margin-top:6px;">読もうとした部分:</p>
                          <img src="${cropUrl}" alt="読み取った範囲" style="max-width:100%; border:1px solid #ddd; border-radius:4px;">`;
