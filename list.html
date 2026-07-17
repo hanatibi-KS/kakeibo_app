@@ -3,9 +3,26 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- スマホで正しい幅で表示するために必須 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>お小遣い帳 - 明細一覧</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- === PWA設定（ホーム画面に追加してアプリのように使うため） === -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4CAF50">
+    <!-- iPhone用 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="家計簿">
+    <link rel="apple-touch-icon" href="icons/icon-180.png">
+
+    <!-- Chart.js（オフラインでも動くようローカルに置いている） -->
+    <script src="js/chart.min.js"></script>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: "Segoe UI", sans-serif;
             background: #f4f6f8;
@@ -17,8 +34,10 @@
             background: #4CAF50;
             color: white;
             text-align: center;
-            padding: 1.2em;
-            font-size: 1.4em;
+            padding: 1.2em 0.6em;
+            /* 画面幅に合わせて文字サイズを自動調整（スマホで2行に折り返さないように） */
+            font-size: clamp(1em, 4.2vw, 1.4em);
+            white-space: nowrap;
         }
 
         main {
@@ -27,34 +46,49 @@
             align-items: center;
             margin: 30px auto;
             gap: 25px;
+            width: 100%;
+            padding: 0 12px;
         }
 
         section {
             background: white;
             padding: 20px;
-            width: 400px;
-            /* ← 横幅を少し広げました */
+            /* 固定幅をやめ、画面幅に合わせて伸縮させる（スマホ対応） */
+            width: 100%;
+            max-width: 520px;
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
             text-align: center;
         }
 
+        /* 表が枠を超えないよう、横スクロールできる箱に入れる */
+        .table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-top: 10px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
-            font-size: 0.95em;
+            font-size: 0.9em;
             table-layout: auto;
-            /* ← 固定幅を解除し自動調整に変更 */
         }
 
         th,
         td {
-            padding: 8px;
+            padding: 8px 6px;
             border-bottom: 1px solid #ddd;
-            word-wrap: break-word;
             white-space: nowrap;
-            /* ← 折り返しを防ぐ */
+        }
+
+        /* 項目名だけは折り返しを許可して、横幅の暴走を防ぐ */
+        td:nth-child(2) {
+            white-space: normal;
+            word-break: break-word;
+            max-width: 120px;
+            text-align: left;
         }
 
         th {
@@ -114,6 +148,95 @@
             font-weight: 500;
             font-size: 1em;
         }
+
+        /* === 振り返り（ムダ遣い候補） === */
+        .review-box {
+            margin-top: 16px;
+            text-align: left;
+        }
+
+        .review-box.has-items {
+            background: #fff8f0;
+            border: 1px solid #ffe0b2;
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+
+        .review-box.all-good {
+            background: #f1f8f4;
+            border: 1px solid #c8e6c9;
+            border-radius: 10px;
+            padding: 14px 16px;
+            text-align: center;
+        }
+
+        .review-title {
+            font-weight: 700;
+            color: #e65100;
+            margin: 0 0 8px;
+            font-size: 0.98em;
+        }
+
+        .review-item {
+            font-size: 0.9em;
+            color: #555;
+            padding: 3px 0;
+        }
+
+        .review-total {
+            margin-top: 8px;
+            font-weight: 700;
+            color: #e65100;
+        }
+
+        .sat-emoji {
+            font-size: 1.1em;
+        }
+
+        /* === 明細行の操作ボタン（コンパクト） === */
+        .ops {
+            white-space: nowrap;
+        }
+
+        .row-btn {
+            padding: 5px 8px;
+            font-size: 0.82em;
+            margin: 0 1px;
+            background: #2196f3;
+            border-radius: 5px;
+        }
+
+        .row-btn:hover {
+            background: #1976D2;
+        }
+
+        .row-btn.del {
+            background: #f44336;
+        }
+
+        .row-btn.del:hover {
+            background: #d32f2f;
+        }
+
+        /* スマホでは余白と文字を詰める（headerの文字サイズはclamp()に任せる） */
+        @media (max-width: 480px) {
+            section {
+                padding: 16px 12px;
+            }
+
+            table {
+                font-size: 0.82em;
+            }
+
+            th,
+            td {
+                padding: 6px 4px;
+            }
+
+            td:nth-child(2) {
+                max-width: 80px;
+            }
+        }
     </style>
 </head>
 
@@ -123,33 +246,34 @@
         <section>
             <h2>支出明細</h2>
 
-<<<<<<< HEAD
             <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin:10px 0;">
                 <button id="prevMonthBtn" class="blue-btn" style="width:40px; padding:8px 0;">←</button>
-                <span id="monthLabel" style="font-size:1.1em; font-weight:bold; min-width:80px; text-align:center;"></span>
+                <span id="monthLabel"
+                    style="font-size:1.1em; font-weight:bold; min-width:80px; text-align:center;"></span>
                 <button id="nextMonthBtn" class="blue-btn" style="width:40px; padding:8px 0;">→</button>
             </div>
-=======
-            <label for="monthSelect">表示する月：</label>
-            <input type="month" id="monthSelect">
-            <button id="filterBtn" class="blue-btn">表示</button>
->>>>>>> 4c0a4cb6356b44965b37547af93aa14d8da8af35
 
-            <table id="expenseTable">
-                <thead>
-                    <tr>
-                        <th>日付</th>
-                        <th>項目</th>
-                        <th>金額</th>
-                        <th>カテゴリ</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+            <div class="table-wrap">
+                <table id="expenseTable">
+                    <thead>
+                        <tr>
+                            <th>日付</th>
+                            <th>項目</th>
+                            <th>金額</th>
+                            <th>カテゴリ</th>
+                            <th>満足度</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
 
             <p id="totalDisplay"></p>
             <p id="balanceDisplay"></p>
+
+            <!-- 振り返り：金額が大きいのに満足度が低い＝ムダ遣い候補 -->
+            <div id="reviewBox" class="review-box"></div>
 
             <button id="toggleChartBtn" class="gray-btn">グラフを表示</button>
             <canvas id="categoryChart" style="display:none;"></canvas>
@@ -159,6 +283,16 @@
     </main>
 
     <script src="js/list.js"></script>
+
+    <!-- Service Worker を登録（オフライン動作を有効にする） -->
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("service-worker.js")
+                    .catch(err => console.log("SW登録失敗:", err));
+            });
+        }
+    </script>
 </body>
 
 </html>
