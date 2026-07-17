@@ -31,6 +31,8 @@
 
     // 前処理済みのレシート画像（白黒）と、画面表示との倍率
     let processedCanvas = null;
+    let originalCanvas = null; // 縮小前の高解像度画像（切り出し読み取りはこちらから行う）
+    let origScale = 1;         // originalCanvas ÷ processedCanvas の倍率
     let imgScale = 1;          // 画像の実ピクセル ÷ 表示ピクセル
     let selection = null;      // 選択範囲（表示座標）{x0,y0,x1,y1}
     let dragging = false;
@@ -223,20 +225,24 @@
         return out;
     }
 
-    // 写真 → OCR用の白黒画像に変換する
-    function preprocessToCanvas(img) {
-        // 大きすぎる写真は遅いだけ。小さすぎると文字が潰れて読めない。
-        const TARGET = 1600;
-        const scale = TARGET / Math.max(img.width, img.height);
+    // 画像を指定の長辺サイズで描く（allowUpscale=false なら拡大はしない）
+    function drawScaled(img, targetLongEdge, allowUpscale) {
+        let scale = targetLongEdge / Math.max(img.width, img.height);
+        if (!allowUpscale) scale = Math.min(1, scale);
         const w = Math.max(1, Math.round(img.width * scale));
         const h = Math.max(1, Math.round(img.height * scale));
-
         const canvas = document.createElement("canvas");
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         ctx.drawImage(img, 0, 0, w, h);
+        return canvas;
+    }
 
+    // canvasを白黒はっきりした画像に変換する（グレースケール→適応的二値化）
+    function binarize(canvas) {
+        const w = canvas.width, h = canvas.height;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
         const imageData = ctx.getImageData(0, 0, w, h);
         const px = imageData.data;
 
@@ -256,6 +262,26 @@
         }
         ctx.putImageData(imageData, 0, 0);
         return canvas;
+    }
+
+    // 指定範囲（processedCanvas座標）を、縮小前の高解像度画像から切り出して白黒化する。
+    //
+    // 全体の読み取りは1600pxで十分だが、行の切り出しまで1600px版から行うと
+    // 文字が潰れた状態を拡大するだけで情報が増えない。
+    // 元の写真（最大3200px）から切り出せば、文字がまだ潰れていない状態で読める。
+    function cropFromOriginal(boxInProcessed, targetWidth, padding) {
+        const obox = {
+            x0: boxInProcessed.x0 * origScale,
+            y0: boxInProcessed.y0 * origScale,
+            x1: boxInProcessed.x1 * origScale,
+            y1: boxInProcessed.y1 * origScale
+        };
+        const w = obox.x1 - obox.x0;
+        if (w <= 2) return null;
+        // 切り出し後の幅が targetWidth 程度になるよう拡大（やりすぎは重いだけ）
+        const zoom = Math.max(1, Math.min(2, targetWidth / w));
+        const crop = cropAndZoom(originalCanvas, obox, zoom, padding * origScale);
+        return crop ? binarize(crop) : null;
     }
 
     // ------------------------------------------------------------
@@ -572,6 +598,79 @@
     viewCanvas.addEventListener("pointercancel", endDrag);
 
     // ------------------------------------------------------------
+    // 貼り付け読み取り（iPhoneの「テキスト認識表示」= Apple Vision の精度を借りる）
+    //
+    // 写真アプリでレシートの文字を長押しすると、iPhone内蔵の高精度OCRが
+    // テキスト化してくれる。それを貼り付けてもらえば、このアプリは
+    // 「文字から金額・日付を探す」部分だけをやればよく、
+    // Tesseractより圧倒的に正確な読み取りが期待できる。
+    // ------------------------------------------------------------
+    // 貼り付けテキスト用の補助。
+    // iPhoneのテキスト認識は「ラベルの列」と「金額の列」を別々の行に
+    // 出力することがある（例: 合計/現金/お釣り…の後に ¥480/¥500/¥20）。
+    // その場合でもラベルと金額の"並び順"は一致するので、
+    // 「合計」がラベル列の何番目かを数えて、同じ順番の金額を採用する。
+    function extractAmountFromColumns(text) {
+        const lines = text.split("\n").map(l => toHalfWidth(l).trim()).filter(Boolean);
+        const LABEL = /(合\s*計|小\s*計|現\s*金|お\s*釣|お\s*預|クレジット|カード|ご請求|お買\s*上|税)/;
+
+        for (let i = 0; i < lines.length; i++) {
+            // 「数字を含まない合計ラベルの行」を探す（数字があれば行方式で拾えている）
+            if (!/合\s*計/.test(lines[i]) || findNumbers(lines[i]).length > 0) continue;
+
+            // ラベルが連続している範囲（列）を特定する
+            let start = i;
+            while (start > 0 && LABEL.test(lines[start - 1]) && findNumbers(lines[start - 1]).length === 0) start--;
+            let end = i;
+            while (end + 1 < lines.length && LABEL.test(lines[end + 1]) && findNumbers(lines[end + 1]).length === 0) end++;
+            const rank = i - start;  // 「合計」はラベル列の何番目か
+
+            // ラベル列の直後に続く「金額だけの行」を順番に集める
+            const amounts = [];
+            for (let j = end + 1; j < lines.length && amounts.length <= end - start + 1; j++) {
+                const nums = findPriceLikeNumbers(lines[j]);
+                if (nums.length === 1 && !LABEL.test(lines[j])) {
+                    amounts.push(nums[0]);
+                    continue;
+                }
+                break;
+            }
+            if (amounts.length > rank) return { amount: amounts[rank], confident: true };
+        }
+        return null;
+    }
+
+    const pasteTextArea = document.getElementById("pasteText");
+    const pasteReadBtn = document.getElementById("pasteReadBtn");
+    if (pasteReadBtn) {
+        pasteReadBtn.addEventListener("click", () => {
+            const text = (pasteTextArea.value || "").trim();
+            if (!text) {
+                alert("先にレシートの文字を貼り付けてください。");
+                return;
+            }
+            resultBox.style.display = "none";
+            // まず行方式で探し、ダメなら列方式（ラベルと金額が別の行になる場合）で探す
+            let info = extractAmount(text);
+            if (!info || !info.confident) {
+                const colInfo = extractAmountFromColumns(text);
+                if (colInfo) info = colInfo;
+            }
+            const date = extractDate(text);
+            showResult({
+                amount: info ? info.amount : null,
+                date,
+                rawText: text,
+                note: info
+                    ? (info.confident
+                        ? "✅ 貼り付けた文字の「合計」の行から読み取りました"
+                        : "⚠️ 「合計」が見つからなかったため、金額らしい数字を採用しました。確認してください。")
+                    : null
+            });
+        });
+    }
+
+    // ------------------------------------------------------------
     // メイン処理
     // ------------------------------------------------------------
 
@@ -593,7 +692,10 @@
         try {
             setProgress(30, "画像を処理しています…");
             const img = await loadImage(file);
-            processedCanvas = preprocessToCanvas(img);
+            // 高解像度版（切り出し読み取り用）と、表示・全体読み取り用（1600px）を分けて持つ
+            originalCanvas = drawScaled(img, 3200, false);
+            processedCanvas = binarize(drawScaled(img, 1600, true));
+            origScale = originalCanvas.width / processedCanvas.width;
 
             // 表示用のサイズを決める（画面に収まる範囲で、なるべく大きく）
             const displayWidth = Math.min(processedCanvas.width, 700);
@@ -631,9 +733,8 @@
         try {
             setProgress(10, "準備しています…（初回は辞書のダウンロードがあります）");
             const box = selectionToImageBox(normalized(selection));
-            // 拡大率は「拡大後の幅が2000px程度」を上限に（大きすぎるとスマホで重い）
-            const zoom = Math.max(1.5, Math.min(3, 2000 / (box.x1 - box.x0)));
-            const crop = cropAndZoom(processedCanvas, box, zoom, 4);
+            // 切り出しは縮小前の高解像度画像から行う（文字が潰れていない状態で読める）
+            const crop = cropFromOriginal(box, 2000, 4);
             if (!crop) {
                 setProgress(0, "範囲が小さすぎます。もう少し大きく囲んでください。");
                 return;
@@ -729,7 +830,8 @@
             const totalLine = findTotalLine(getLines(data));
             if (totalLine) {
                 setProgress(72, "合計の行を数字専用モードで読み直しています…");
-                const crop = cropAndZoom(processedCanvas, totalLine.bbox, 3, 6);
+                // 見つけた行を、縮小前の高解像度画像から切り出して読む
+                const crop = cropFromOriginal(totalLine.bbox, 2000, 6);
                 if (crop) {
                     const amount = await readDigitsFrom(crop, 80);
                     if (amount !== null) {

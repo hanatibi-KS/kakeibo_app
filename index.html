@@ -307,6 +307,31 @@
             margin-top: 8px;
         }
 
+        /* === 貼り付け読み取り（Apple Vision裏技） === */
+        .paste-box {
+            margin-top: 14px;
+            text-align: left;
+            border-top: 1px dashed #ddd;
+            padding-top: 10px;
+        }
+
+        .paste-box summary {
+            cursor: pointer;
+            color: #2196F3;
+            font-size: 0.9em;
+        }
+
+        #pasteText {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
         /* === 満足度セレクター === */
         .satisfaction-label {
             font-size: 0.9em;
@@ -405,6 +430,19 @@
             </div>
 
             <div id="ocrResult" class="ocr-result" style="display:none;"></div>
+
+            <!-- iPhoneの「テキスト認識表示」（Apple Vision）の精度を借りる裏技 -->
+            <details class="paste-box">
+                <summary>💡 iPhoneの標準機能で読み取る（高精度）</summary>
+                <p class="ocr-note" style="text-align:left; margin-top:8px; line-height:1.8;">
+                    ① 写真アプリでレシートの写真を開く<br>
+                    ② 写真の文字を長押し →「すべてを選択」→「コピー」<br>
+                    ③ 下の欄に貼り付けて「読み取る」<br>
+                    <span style="color:#aaa;">※ iPhoneに内蔵の高精度OCR（Apple Vision）が使われます</span>
+                </p>
+                <textarea id="pasteText" rows="4" placeholder="ここにレシートの文字を貼り付け"></textarea>
+                <button id="pasteReadBtn">貼り付けた文字から読み取る</button>
+            </details>
         </section>
 
         <!-- 支出登録 -->
