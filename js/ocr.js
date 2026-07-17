@@ -70,8 +70,12 @@
     // ・「お預り」「お釣り」「現金」… 合計より大きい数字が載ることがある
     // ・「番号」「No」「取引」「会員」… 責任番号・伝票番号・会員番号などを
     //   金額と誤認する事故が実際に起きたため除外
-    // 「商品数」「点数」は『お買上商品数:12』の 12 を金額と誤認しないため
-    const EXCLUDE_KEYWORD = /(預|釣|つり|お返し|ポイント|point|残高|カード|クレジット|現金|電話|TEL|〒|番号|No\.|取引|会員|伝票|領収|レジ|商品数|点数|個数)/i;
+    // 「商品数」「点数」は『お買上商品数:12』の 12 を金額と誤認しないため。
+    // 「小計」は税抜の途中金額なので、合計と混同しないよう除外する
+    //（「合計」のラベルが読めなかった時に小計の金額を拾ってしまう事故を防ぐ）。
+    // レシートは「現 金」「小 計」のように文字間にスペースを入れて印字することが
+    // 多いため、漢字の熟語は \s* を挟んでスペース入りでも一致するようにしている。
+    const EXCLUDE_KEYWORD = /(預|釣|つり|お\s*返し|ポイント|point|残\s*高|カード|クレジット|現\s*金|電話|TEL|〒|番\s*号|No\.|取\s*引|会\s*員|伝\s*票|領\s*収|レジ|商\s*品\s*数|点\s*数|個\s*数|小\s*計)/i;
 
     // 金額と間違えやすい数字（日付・時刻・電話番号）を先に取り除く。
     // これをやらないと「2026-07-10」の "2026" を金額として拾ってしまう。
@@ -620,6 +624,9 @@
         busy = true;
         readSelectionBtn.disabled = true;
         readAllBtn.disabled = true;
+        // 前回の結果を消す。これをしないと、再読み取り中も古い結果が
+        // 表示されたままになり「押したのに変化がない」ように見えてしまう。
+        resultBox.style.display = "none";
 
         try {
             setProgress(10, "準備しています…（初回は辞書のダウンロードがあります）");
@@ -647,7 +654,8 @@
                     amount = await readDigitsFrom(lineCrop, 80, "7");
                     if (amount !== null) {
                         cropUrl = lineCrop.toDataURL("image/png");
-                        note = "✅ 囲んだ中から「合計」の行を見つけて、数字専用モードで読み取りました";
+                        // どの行を「合計」と判断したかを見せる（小計との混同にすぐ気づけるように）
+                        note = `✅ この行を合計と判断しました:「${escapeHtml(totalLine.text)}」`;
                     }
                 }
             }
@@ -692,6 +700,8 @@
         busy = true;
         readSelectionBtn.disabled = true;
         readAllBtn.disabled = true;
+        // 前回の結果を消す（再読み取りだと分かるように）
+        resultBox.style.display = "none";
 
         let jpnWorker;
         try {
@@ -727,7 +737,7 @@
                         showResult({
                             amount, date, rawText: text,
                             cropUrl: crop.toDataURL("image/png"),
-                            note: "✅ 「合計」の行を見つけて、数字専用モードで読み直しました"
+                            note: `✅ この行を合計と判断しました:「${escapeHtml(totalLine.text)}」`
                         });
                         return;
                     }
