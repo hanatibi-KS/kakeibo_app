@@ -187,7 +187,7 @@ const CACHE_NAME = "kakeibo-v2";  // → "kakeibo-v3" に変更する
 筋トレ・ストレッチ・運動記録、健康への投資額の可視化
 
 ### Ver4: ネイティブアプリ化
-Capacitor で iOS/Android アプリ化（App Store 公開には Apple Developer Program 年$99 が必要）
+Capacitor で iOS/Android アプリ化
 
 ### そのほかの改善案
 カテゴリ自由追加 / CSV出力 / ダークモード / 我慢貯金チャレンジ / ログイン機能 / Supabase対応・クラウド同期 / 通知機能
