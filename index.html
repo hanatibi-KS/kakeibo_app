@@ -3,8 +3,23 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- スマホで正しい幅で表示するために必須 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>お小遣い帳 - 登録画面</title>
+
+    <!-- === PWA設定（ホーム画面に追加してアプリのように使うため） === -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4CAF50">
+    <!-- iPhone用 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="家計簿">
+    <link rel="apple-touch-icon" href="icons/icon-180.png">
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: "Segoe UI", sans-serif;
             background: #f4f6f8;
@@ -16,8 +31,10 @@
             background: #4CAF50;
             color: white;
             text-align: center;
-            padding: 1.2em;
-            font-size: 1.4em;
+            padding: 1.2em 0.6em;
+            /* 画面幅に合わせて文字サイズを自動調整（スマホで2行に折り返さないように） */
+            font-size: clamp(1em, 4.2vw, 1.4em);
+            white-space: nowrap;
         }
 
         main {
@@ -25,13 +42,18 @@
             flex-direction: column;
             align-items: center;
             margin-top: 30px;
+            margin-bottom: 30px;
             gap: 30px;
+            width: 100%;
+            padding: 0 12px;
         }
 
         section {
             background: white;
             padding: 25px;
-            width: 360px;
+            /* 固定幅をやめ、画面幅に合わせて伸縮させる（スマホ対応） */
+            width: 100%;
+            max-width: 400px;
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
             text-align: center;
@@ -40,12 +62,33 @@
         input,
         select,
         button {
-            width: 90%;
-            padding: 10px;
+            width: 100%;
+            padding: 12px;
             margin: 8px 0;
             border: 1px solid #ccc;
             border-radius: 6px;
-            font-size: 1em;
+            /* スマホで入力時に画面が拡大するのを防ぐ（16px以上が必要） */
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        /* iPhoneのSafariでは日付入力の中身が右寄りになってしまうため、左寄せに揃える */
+        input[type="date"] {
+            -webkit-appearance: none;
+            appearance: none;
+            text-align: left;
+            /* 他の入力欄と高さを揃える */
+            min-height: 45px;
+            background: white;
+        }
+
+        input[type="date"]::-webkit-date-and-time-value {
+            text-align: left;
+            margin: 0;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            margin-left: auto;
         }
 
         button {
@@ -68,12 +111,107 @@
         .link-button:hover {
             background: #1976D2;
         }
+
+        /* === 今月のペース ダッシュボード === */
+        .pace-card {
+            background: linear-gradient(135deg, #ffffff, #f1f8f4);
+        }
+
+        .mascot {
+            font-size: 3em;
+            line-height: 1;
+            margin: 4px 0;
+        }
+
+        .pace-message {
+            font-size: 1.05em;
+            font-weight: 600;
+            color: #333;
+            min-height: 1.4em;
+            margin: 6px 0;
+        }
+
+        .pace-sub {
+            font-size: 0.85em;
+            color: #777;
+            margin: 2px 0 12px;
+        }
+
+        .pace-bar {
+            width: 100%;
+            height: 16px;
+            background: #e6e9ec;
+            border-radius: 10px;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        .pace-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 10px;
+            background: #4CAF50;
+            transition: width 0.5s ease, background 0.3s;
+        }
+
+        .pace-bar-caption {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 6px;
+        }
+
+        /* === 満足度セレクター === */
+        .satisfaction-label {
+            font-size: 0.9em;
+            color: #555;
+            margin: 10px 0 4px;
+        }
+
+        .satisfaction-group {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 6px;
+        }
+
+        .sat-btn {
+            width: auto;
+            flex: 1;
+            padding: 8px 0;
+            background: #f0f0f0;
+            color: #555;
+            border: 2px solid transparent;
+            margin: 0;
+        }
+
+        .sat-btn:hover {
+            background: #e4e7ea;
+        }
+
+        .sat-btn.selected {
+            background: #fff;
+            border-color: #4CAF50;
+            color: #2e7d32;
+            font-weight: 700;
+        }
     </style>
 </head>
 
 <body>
     <header>家計簿サポートアプリ - 登録画面</header>
     <main>
+
+        <!-- 今月のペース ダッシュボード -->
+        <section class="pace-card">
+            <h2>今月のペース</h2>
+            <div class="mascot" id="mascot">🐱</div>
+            <p class="pace-message" id="paceMessage"></p>
+            <p class="pace-sub" id="paceSub"></p>
+            <div class="pace-bar">
+                <div class="pace-bar-fill" id="paceBarFill"></div>
+            </div>
+            <p class="pace-bar-caption" id="paceBarCaption"></p>
+        </section>
 
         <!-- お小遣い（収入）登録 -->
         <section>
@@ -104,6 +242,14 @@
                 <option value="その他">その他</option>
             </select>
 
+            <!-- 満足度（この支出は満足だった？） -->
+            <p class="satisfaction-label">この支出の満足度は？</p>
+            <div class="satisfaction-group" id="satisfactionGroup">
+                <button type="button" class="sat-btn" data-value="good">◎ 満足</button>
+                <button type="button" class="sat-btn selected" data-value="ok">○ 普通</button>
+                <button type="button" class="sat-btn" data-value="bad">△ いまいち</button>
+            </div>
+
             <button id="saveExpenseBtn">支出を保存</button>
             <p id="balanceDisplay"></p>
         </section>
@@ -118,6 +264,16 @@
 
     <!-- main.js を読み込む（同フォルダに置く） -->
     <script src="js/main.js"></script>
+
+    <!-- Service Worker を登録（オフライン動作を有効にする） -->
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("service-worker.js")
+                    .catch(err => console.log("SW登録失敗:", err));
+            });
+        }
+    </script>
 </body>
 
 </html>
