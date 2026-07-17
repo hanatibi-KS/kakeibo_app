@@ -70,7 +70,8 @@
     // ・「お預り」「お釣り」「現金」… 合計より大きい数字が載ることがある
     // ・「番号」「No」「取引」「会員」… 責任番号・伝票番号・会員番号などを
     //   金額と誤認する事故が実際に起きたため除外
-    const EXCLUDE_KEYWORD = /(預|釣|つり|お返し|ポイント|point|残高|カード|クレジット|現金|電話|TEL|〒|番号|No\.|取引|会員|伝票|領収|レジ)/i;
+    // 「商品数」「点数」は『お買上商品数:12』の 12 を金額と誤認しないため
+    const EXCLUDE_KEYWORD = /(預|釣|つり|お返し|ポイント|point|残高|カード|クレジット|現金|電話|TEL|〒|番号|No\.|取引|会員|伝票|領収|レジ|商品数|点数|個数)/i;
 
     // 金額と間違えやすい数字（日付・時刻・電話番号）を先に取り除く。
     // これをやらないと「2026-07-10」の "2026" を金額として拾ってしまう。
@@ -320,7 +321,8 @@
     }
 
     // 切り出した画像から「数字だけ」を読む（ここが精度の要）
-    async function readDigitsFrom(cropCanvas, progressBase) {
+    // psm: "7"=1行だけを読む / "6"=複数行の塊を読む
+    async function readDigitsFrom(cropCanvas, progressBase, psm = "7") {
         let worker;
         try {
             // 数字認識には英語辞書の精度重視版(_best)を使う。
@@ -329,13 +331,13 @@
                 langPath: "https://tessdata.projectnaptha.com/4.0.0_best",
                 logger: (m) => {
                     if (m.status === "recognizing text") {
-                        setProgress(progressBase + Math.round(m.progress * 15), "金額を読み取り中…");
+                        setProgress(progressBase + Math.round(m.progress * 10), "金額を読み取り中…");
                     }
                 }
             });
 
             await worker.setParameters({
-                tessedit_pageseg_mode: "7",  // 1行だけを読むモード
+                tessedit_pageseg_mode: psm,
                 // 読み取る文字を数字と記号だけに限定する。
                 // こうすると「8」を「日」と誤読するような事故が起きなくなる。
                 tessedit_char_whitelist: "0123456789,.¥￥"
@@ -343,26 +345,54 @@
 
             const { data } = await worker.recognize(cropCanvas, {}, { text: true, blocks: true });
 
-            // 「一番右にある数字」を金額として採用する。
-            //
-            // 文字種を数字に限定しているため、「合計」というラベル自体も
-            // 無理やり数字として読まれてしまう（例: 「合計」→「60」）。
-            // しかしレシートでは金額が必ず右側にあるので、最大値ではなく
-            // "右端"で選ぶことで、ラベルの誤読を無視できる。
-            let rightmost = null;
+            // 金額の選び方:
+            // ・明らかに大きい文字は合計金額であることが多い（レシートは合計を強調する）ので優先
+            // ・同じくらいの大きさなら、一番右にあるものを採用する。
+            //   文字種を数字に限定した副作用で「合計」ラベル自体も数字に誤読されるが、
+            //   それは行の左側に出るので、右端優先で無視できる。
+            let best = null;
             for (const word of getWords(data)) {
                 if (!word.bbox) continue;
                 const nums = findNumbers(toHalfWidth(word.text || ""));
                 if (nums.length === 0) continue;
-                if (!rightmost || word.bbox.x1 > rightmost.x1) {
-                    rightmost = { x1: word.bbox.x1, amount: Math.max(...nums) };
-                }
+                const c = {
+                    h: word.bbox.y1 - word.bbox.y0,
+                    x1: word.bbox.x1,
+                    amount: Math.max(...nums)
+                };
+                if (!best) best = c;
+                else if (c.h > best.h * 1.25) best = c;                       // 明らかに大きい文字
+                else if (c.h >= best.h * 0.8 && c.x1 > best.x1) best = c;     // 同格なら右端
             }
-            if (rightmost) return rightmost.amount;
+            if (best) return best.amount;
 
             // 単語の位置が取れない場合はテキスト全体から拾う
             const nums = findNumbers(toHalfWidth(data.text || ""));
             return nums.length > 0 ? Math.max(...nums) : null;
+        } finally {
+            if (worker) await worker.terminate();
+        }
+    }
+
+    // 日本語で読む（囲んだ範囲の中から「合計」などのラベルを見つけるために使う）
+    async function readJapanese(canvas, progressBase, progressSpan, label) {
+        let worker;
+        try {
+            worker = await Tesseract.createWorker("jpn", 1, {
+                logger: (m) => {
+                    if (m.status === "recognizing text") {
+                        setProgress(progressBase + Math.round(m.progress * progressSpan), label);
+                    } else if (m.status === "loading language traineddata") {
+                        setProgress(progressBase, "日本語辞書をダウンロード中…");
+                    }
+                }
+            });
+            await worker.setParameters({
+                tessedit_pageseg_mode: "6",       // 1列に並んだ文字の塊として読む
+                preserve_interword_spaces: "1"
+            });
+            const { data } = await worker.recognize(canvas, {}, { text: true, blocks: true });
+            return data;
         } finally {
             if (worker) await worker.terminate();
         }
@@ -577,7 +607,14 @@
         }
     });
 
-    // ② 「選択した範囲を読み取る」… 人が囲んだ場所だけを数字専用で読む（最も高精度）
+    // ② 「選択した範囲を読み取る」
+    //
+    // 以前はここで「数字専用・1行モード」で直接読んでいたが、
+    // ユーザーは自然に合計のあたりを"数行まとめて"囲む（実際にそうだった）。
+    // 1行モードに複数行を渡すと何も読めなくなるため、3段構えに変更した。
+    //   ① 囲んだ範囲を日本語で読み「合計」の行を特定 → その行だけ数字専用で読む
+    //   ② 行の特定に失敗したら、日本語の読み取り結果から金額らしい数字を探す
+    //   ③ それでもダメなら、範囲全体を数字専用の複数行モードで読む
     readSelectionBtn.addEventListener("click", async () => {
         if (!processedCanvas || !selection || busy) return;
         busy = true;
@@ -585,21 +622,59 @@
         readAllBtn.disabled = true;
 
         try {
-            setProgress(20, "準備しています…（初回は辞書のダウンロードがあります）");
+            setProgress(10, "準備しています…（初回は辞書のダウンロードがあります）");
             const box = selectionToImageBox(normalized(selection));
-            const crop = cropAndZoom(processedCanvas, box, 3, 4);
+            // 拡大率は「拡大後の幅が2000px程度」を上限に（大きすぎるとスマホで重い）
+            const zoom = Math.max(1.5, Math.min(3, 2000 / (box.x1 - box.x0)));
+            const crop = cropAndZoom(processedCanvas, box, zoom, 4);
             if (!crop) {
                 setProgress(0, "範囲が小さすぎます。もう少し大きく囲んでください。");
                 return;
             }
 
-            const amount = await readDigitsFrom(crop, 80);
+            // ① 日本語で読んで「合計」の行を探す
+            const data = await readJapanese(crop, 15, 55, "選択した範囲を読み取り中…");
+            const text = data.text || "";
+            let amount = null;
+            let note = null;
+            let cropUrl = crop.toDataURL("image/png");
+
+            const totalLine = findTotalLine(getLines(data));
+            if (totalLine) {
+                setProgress(72, "「合計」の行を数字専用モードで読み直しています…");
+                const lineCrop = cropAndZoom(crop, totalLine.bbox, 2, 6);
+                if (lineCrop) {
+                    amount = await readDigitsFrom(lineCrop, 80, "7");
+                    if (amount !== null) {
+                        cropUrl = lineCrop.toDataURL("image/png");
+                        note = "✅ 囲んだ中から「合計」の行を見つけて、数字専用モードで読み取りました";
+                    }
+                }
+            }
+
+            // ② 日本語の読み取り結果から金額を探す
+            if (amount === null) {
+                const info = extractAmount(text);
+                if (info) {
+                    amount = info.amount;
+                    note = info.confident
+                        ? "「合計」の行から読み取りました"
+                        : "⚠️ 囲んだ範囲から金額らしい数字を拾いました。違っていたら直してください。";
+                }
+            }
+
+            // ③ 数字専用の複数行モードで読む
+            //    （1行だけをきっちり囲んだ場合や、日本語が全滅した場合の保険）
+            if (amount === null) {
+                setProgress(85, "数字だけを読み直しています…");
+                amount = await readDigitsFrom(crop, 88, "6");
+                if (amount !== null) {
+                    note = "⚠️ 数字だけを読み取りました。合計の金額か確認してください。";
+                }
+            }
+
             setProgress(100, "完了！");
-            showResult({
-                amount,
-                cropUrl: crop.toDataURL("image/png"),
-                note: "✅ 囲んだ範囲を数字専用モードで読み取りました（最も精度が高い方法です）"
-            });
+            showResult({ amount, cropUrl, rawText: text, note });
         } catch (err) {
             console.error("OCRエラー:", err);
             setProgress(0, "読み取りに失敗しました。もう一度お試しください。");
