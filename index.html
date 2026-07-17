@@ -190,12 +190,47 @@
             display: none;
         }
 
-        #receiptPreview {
+        /* レシート画像（ここを指でなぞって範囲選択する） */
+        #receiptCanvas {
             max-width: 100%;
-            max-height: 200px;
             border-radius: 8px;
-            margin: 10px 0;
+            margin: 8px 0;
             border: 1px solid #ddd;
+            cursor: crosshair;
+            /* 指でなぞった時に画面がスクロールしないようにする（範囲選択を優先） */
+            touch-action: none;
+            display: block;
+        }
+
+        #cropZoom {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #fff;
+        }
+
+        #cropZoomWrap {
+            margin: 8px 0;
+        }
+
+        .crop-guide {
+            font-size: 0.9em;
+            color: #333;
+            margin: 10px 0 4px;
+            line-height: 1.6;
+        }
+
+        .gray-btn {
+            background: #757575;
+        }
+
+        .gray-btn:hover {
+            background: #616161;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
         }
 
         .ocr-bar {
@@ -342,11 +377,25 @@
             <input type="file" id="receiptInput" accept="image/*">
 
             <p class="ocr-note" style="margin-top:6px;">
-                📌 <b>うまく読むコツ</b>：明るい場所で、影を作らず、レシートを平らに伸ばして真上から。
-                <b>合計の周辺だけを大きく写す</b>と精度が上がります。
+                📌 <b>うまく撮るコツ</b>：明るい場所で、影を作らず、レシートを平らに伸ばして真上から。
             </p>
 
-            <img id="receiptPreview" alt="レシートのプレビュー" style="display:none;">
+            <!-- 撮影後、合計の位置をユーザーに指定してもらう -->
+            <div id="cropArea" style="display:none;">
+                <p class="crop-guide">👆 <b>合計の金額を指でなぞって囲んでください</b><br>
+                    <span class="ocr-note">囲んだ範囲だけを読むので、精度がぐっと上がります</span>
+                </p>
+
+                <canvas id="receiptCanvas"></canvas>
+
+                <div id="cropZoomWrap" style="display:none;">
+                    <p class="ocr-note" style="margin-bottom:4px;">選択した範囲（拡大）:</p>
+                    <canvas id="cropZoom"></canvas>
+                </div>
+
+                <button id="readSelectionBtn" disabled>選択した範囲を読み取る</button>
+                <button id="readAllBtn" class="gray-btn">囲まずに全体から自動で探す</button>
+            </div>
 
             <div id="ocrProgress" style="display:none;">
                 <div class="ocr-bar">

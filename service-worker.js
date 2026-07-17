@@ -8,7 +8,7 @@
 // ファイルを修正したら下の CACHE_NAME の数字を上げる（v1 → v2）。
 // そうするとスマホ側の古い保存分が捨てられ、新しいファイルに入れ替わる。
 
-const CACHE_NAME = "kakeibo-v5";
+const CACHE_NAME = "kakeibo-v6";
 
 // 最初に保存しておくファイル一覧（これだけあればオフラインで完全に動く）
 const ASSETS = [
