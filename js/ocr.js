@@ -18,7 +18,6 @@
     const zoomWrap = document.getElementById("cropZoomWrap");
     const zoomCanvas = document.getElementById("cropZoom");
     const readSelectionBtn = document.getElementById("readSelectionBtn");
-    const readAllBtn = document.getElementById("readAllBtn");
     const progressBox = document.getElementById("ocrProgress");
     const barFill = document.getElementById("ocrBarFill");
     const statusText = document.getElementById("ocrStatus");
@@ -434,7 +433,9 @@
 
         if (amount !== null && amount !== undefined) {
             html += `<div class="ocr-found">${amount.toLocaleString()} 円</div>`;
-            amountInput.value = amount;
+            // 勝手に入力欄へは入れない。誤読した数字を消す手間の方がストレスに
+            // なるため、確認してからボタン1タップで採用してもらう方式にした。
+            html += `<button id="adoptBtn">⬇ この金額で入力する</button>`;
             if (note) html += `<p class="ocr-note">${note}</p>`;
             if (cropUrl) {
                 html += `<p class="ocr-note" style="margin-top:6px;">この部分を読みました:</p>
@@ -451,14 +452,15 @@
         }
 
         if (date) {
-            dateInput.value = date;
-            html += `<p class="ocr-note">日付: ${escapeHtml(date)}</p>`;
+            html += `<p class="ocr-note">日付: ${escapeHtml(date)}（金額と一緒に入力されます）</p>`;
         }
 
-        // 店名の自動入力はしない。
-        // 店名はOCRで最も読み取りが不安定なうえ、間違った文字が入ると
+        // 店名（項目名）の自動入力はしない。
+        // OCRで最も読み取りが不安定なうえ、間違った文字が入ると
         // 消して打ち直す手間が増えて、かえって遅くなるため。
-        html += `<p class="ocr-note" style="margin-top:8px;">金額を入れました。<b>項目名はご自身で入力してください</b>。内容を確認して保存を。</p>`;
+        if (amount !== null && amount !== undefined) {
+            html += `<p class="ocr-note" style="margin-top:8px;">金額を確認して、良ければ上のボタンで入力欄へ。<b>項目名はご自身で入力してください</b>。</p>`;
+        }
 
         // 読み取った生テキストも見られるようにする（うまくいかない時の原因調査用）
         if (rawText !== undefined) {
@@ -481,7 +483,25 @@
             });
         }
 
-        amountInput.scrollIntoView({ behavior: "smooth", block: "center" });
+        // 採用ボタン: 押した時にはじめて入力欄へ反映する
+        const adoptBtn = document.getElementById("adoptBtn");
+        if (adoptBtn) {
+            adoptBtn.addEventListener("click", () => {
+                amountInput.value = amount;
+                if (date) dateInput.value = date;
+                amountInput.scrollIntoView({ behavior: "smooth", block: "center" });
+                flashInput(amountInput);
+            });
+        }
+
+        resultBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    // 入力欄を一瞬ハイライトして「入った」ことを知らせる
+    function flashInput(el) {
+        el.style.transition = "background-color 0.2s";
+        el.style.backgroundColor = "#c8e6c9";
+        setTimeout(() => { el.style.backgroundColor = ""; }, 900);
     }
 
     // ------------------------------------------------------------
@@ -562,7 +582,8 @@
 
     // pointerイベントを使うと、指でもマウスでも同じコードで扱える
     viewCanvas.addEventListener("pointerdown", (e) => {
-        if (!processedCanvas || busy) return;
+        // 自動読み取りの実行中(busy)でも囲むのは自由（読むのはボタンを押した時）
+        if (!processedCanvas) return;
         e.preventDefault();
         viewCanvas.setPointerCapture(e.pointerId);
         const p = pointerPos(e);
@@ -590,7 +611,8 @@
             readSelectionBtn.disabled = true;
             zoomWrap.style.display = "none";
         } else {
-            readSelectionBtn.disabled = false;
+            // 自動読み取り中は完了までボタンを無効のままにする
+            readSelectionBtn.disabled = busy;
             drawZoom();
         }
         drawView();
@@ -642,36 +664,59 @@
         return null;
     }
 
-    const pasteTextArea = document.getElementById("pasteText");
-    const pasteReadBtn = document.getElementById("pasteReadBtn");
     const pasteBox = document.getElementById("pasteBox");
     const liveTextImage = document.getElementById("liveTextImage");
+    const pasteAmountBtn = document.getElementById("pasteAmountBtn");
+    const clearAmountBtn = document.getElementById("clearAmountBtn");
     let liveTextUrl = null;  // 表示中写真のURL（次の写真を選んだら解放する）
-    if (pasteReadBtn) {
-        pasteReadBtn.addEventListener("click", () => {
-            const text = (pasteTextArea.value || "").trim();
-            if (!text) {
-                alert("先にレシートの文字を貼り付けてください。");
+
+    // ✕ 金額を消すボタン（誤読した数字を選択して消す手間をなくす）
+    if (clearAmountBtn) {
+        clearAmountBtn.addEventListener("click", () => {
+            amountInput.value = "";
+            amountInput.focus();
+        });
+    }
+
+    // 📋 コピーした金額を貼り付けるボタン。
+    // 写真の数字を長押しコピー（Live Text）した後、これ1タップで金額欄に入る。
+    // 「¥480」だけのコピーでも、レシート全文のコピーでも解析できる。
+    if (pasteAmountBtn) {
+        pasteAmountBtn.addEventListener("click", async () => {
+            let text = "";
+            try {
+                text = await navigator.clipboard.readText();
+            } catch (e) {
+                alert("貼り付けが許可されませんでした。金額欄に直接貼り付けてください。");
                 return;
             }
-            resultBox.style.display = "none";
-            // まず行方式で探し、ダメなら列方式（ラベルと金額が別の行になる場合）で探す
+            text = (text || "").trim();
+            if (!text) {
+                alert("コピーされた文字がありません。先に写真の数字を長押ししてコピーしてください。");
+                return;
+            }
+
+            // まず行方式 → 列方式 → 最後はコピー内の数字そのもの、の順で解析
             let info = extractAmount(text);
             if (!info || !info.confident) {
                 const colInfo = extractAmountFromColumns(text);
                 if (colInfo) info = colInfo;
             }
+            let amount = info ? info.amount : null;
+            if (amount === null) {
+                // 「480」のように数字だけをコピーした場合はそのまま使う
+                const nums = findNumbers(toHalfWidth(text));
+                if (nums.length > 0) amount = Math.max(...nums);
+            }
+            if (amount === null) {
+                alert("コピーした内容から金額が見つかりませんでした。");
+                return;
+            }
+
+            amountInput.value = amount;
             const date = extractDate(text);
-            showResult({
-                amount: info ? info.amount : null,
-                date,
-                rawText: text,
-                note: info
-                    ? (info.confident
-                        ? "✅ 貼り付けた文字の「合計」の行から読み取りました"
-                        : "⚠️ 「合計」が見つからなかったため、金額らしい数字を採用しました。確認してください。")
-                    : null
-            });
+            if (date) dateInput.value = date;
+            flashInput(amountInput);
         });
     }
 
@@ -721,8 +766,10 @@
 
             drawView();
             cropArea.style.display = "block";
-            setProgress(100, "合計の金額を指でなぞって囲んでください");
-            setTimeout(() => { progressBox.style.display = "none"; }, 1500);
+
+            // 撮影したらすぐ自動読み取りを開始する（ボタンを押す手間をなくす）。
+            // 外れていたら結果の案内に従って、囲み直しや長押しコピーができる。
+            await runAutoRead();
         } catch (err) {
             console.error("画像処理エラー:", err);
             setProgress(0, "画像を読み込めませんでした。");
@@ -741,7 +788,6 @@
         if (!processedCanvas || !selection || busy) return;
         busy = true;
         readSelectionBtn.disabled = true;
-        readAllBtn.disabled = true;
         // 前回の結果を消す。これをしないと、再読み取り中も古い結果が
         // 表示されたままになり「押したのに変化がない」ように見えてしまう。
         resultBox.style.display = "none";
@@ -806,17 +852,15 @@
         } finally {
             busy = false;
             readSelectionBtn.disabled = false;
-            readAllBtn.disabled = false;
             setTimeout(() => { progressBox.style.display = "none"; }, 1200);
         }
     });
 
-    // ③ 「全体から自動で探す」… 日本語OCRで「合計」の行を探してから数字を読む
-    readAllBtn.addEventListener("click", async () => {
+    // ③ 全体からの自動読み取り（写真を選ぶと自動で実行される。ボタンは廃止）
+    async function runAutoRead() {
         if (!processedCanvas || busy) return;
         busy = true;
         readSelectionBtn.disabled = true;
-        readAllBtn.disabled = true;
         // 前回の結果を消す（再読み取りだと分かるように）
         resultBox.style.display = "none";
 
@@ -880,8 +924,7 @@
             if (jpnWorker) await jpnWorker.terminate();
             busy = false;
             readSelectionBtn.disabled = !selection;
-            readAllBtn.disabled = false;
             setTimeout(() => { progressBox.style.display = "none"; }, 1200);
         }
-    });
+    }
 })();

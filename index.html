@@ -321,15 +321,27 @@
             font-size: 0.9em;
         }
 
-        #pasteText {
-            width: 100%;
-            padding: 10px;
-            margin: 8px 0;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 16px;
-            font-family: inherit;
-            resize: vertical;
+        /* 金額欄と補助ボタン（📋貼り付け / ✕クリア）を横に並べる */
+        .amount-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .amount-row input {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mini-btn {
+            width: auto;
+            flex: 0 0 auto;
+            padding: 12px 14px;
+            background: #757575;
+        }
+
+        .mini-btn:hover {
+            background: #616161;
         }
 
         /* Live Text用の元写真（長押しで文字コピーができる） */
@@ -415,8 +427,8 @@
 
             <!-- 撮影後、合計の位置をユーザーに指定してもらう -->
             <div id="cropArea" style="display:none;">
-                <p class="crop-guide">👆 <b>合計のあたりを指でなぞって囲んでください</b><br>
-                    <span class="ocr-note">数行まとめて囲んでOK。「合計」の行を自動で見つけて読み取ります</span>
+                <p class="crop-guide">⏳ 撮影すると<b>自動で読み取りが始まります</b><br>
+                    <span class="ocr-note">外れていたら、合計のあたりを指でなぞって囲み「選択した範囲を読み取る」で読み直せます（数行まとめてOK）</span>
                 </p>
 
                 <canvas id="receiptCanvas"></canvas>
@@ -427,7 +439,6 @@
                 </div>
 
                 <button id="readSelectionBtn" disabled>選択した範囲を読み取る</button>
-                <button id="readAllBtn" class="gray-btn">囲まずに全体から自動で探す</button>
             </div>
 
             <div id="ocrProgress" style="display:none;">
@@ -445,14 +456,12 @@
             <details class="paste-box" id="pasteBox">
                 <summary>💡 iPhoneの標準機能で読み取る（高精度）</summary>
                 <p class="ocr-note" style="text-align:left; margin-top:8px; line-height:1.8;">
-                    ① 下の写真の<b>文字を長押し</b>して選択（iPhoneの文字認識が動きます）<br>
+                    ① 下の写真の<b>合計の数字を長押し</b>して選択（iPhoneの文字認識が動きます）<br>
                     ②「コピー」をタップ<br>
-                    ③ 入力欄に貼り付けて「読み取る」<br>
-                    <span style="color:#aaa;">※ iPhone内蔵の高精度OCR（Apple Vision）が使われます。写真アプリで長押し→コピーしてもOK</span>
+                    ③ 金額欄の横の「📋」を押すと貼り付きます<br>
+                    <span style="color:#aaa;">※ iPhone内蔵の高精度OCR（Apple Vision）。初回は「ペースト」の許可が表示されます</span>
                 </p>
                 <img id="liveTextImage" alt="撮影したレシート（文字を長押しでコピーできます）" style="display:none;">
-                <textarea id="pasteText" rows="4" placeholder="ここにレシートの文字を貼り付け"></textarea>
-                <button id="pasteReadBtn">貼り付けた文字から読み取る</button>
             </details>
         </section>
 
@@ -466,8 +475,12 @@
             <!-- 項目 -->
             <input type="text" id="item" placeholder="項目（例：昼食）">
 
-            <!-- 金額 -->
-            <input type="number" id="amount" placeholder="金額（円）">
+            <!-- 金額（📋=コピーした金額を貼り付け / ✕=消す） -->
+            <div class="amount-row">
+                <input type="number" id="amount" placeholder="金額（円）">
+                <button type="button" id="pasteAmountBtn" class="mini-btn" title="コピーした金額を貼り付け">📋</button>
+                <button type="button" id="clearAmountBtn" class="mini-btn" title="金額を消す">✕</button>
+            </div>
 
             <!-- カテゴリ -->
             <select id="category">
