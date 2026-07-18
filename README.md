@@ -50,6 +50,13 @@ https://hanatibi-ks.github.io/kakeibo_app/
 - カテゴリ別の円グラフ（割合%付き・表示/非表示切替）
 - 編集（モーダル）・削除
 
+### 健康管理画面（`health.html`）
+- 運動の記録（筋トレ / ストレッチ / ウォーキング / ランニング / その他 ＋ 時間）
+- 今月の運動回数・合計時間・連続日数、応援キャラ🐱
+- **健康への投資** — 支出カテゴリ「健康」の合計と、
+  「運動1回あたりのコスト」を表示（動くほどおトクになる、家計簿ならではの動機づけ）
+- 月別の履歴・削除
+
 ---
 
 ## 🚀 使い方
@@ -91,12 +98,15 @@ lsof -ti:8765 | xargs kill
 kakeibo_app/
 ├── index.html          登録画面（CSSは<style>内に記述）
 ├── list.html           明細画面（CSSは<style>内に記述）
+├── health.html         健康管理画面（CSSは<style>内に記述）
 ├── manifest.json       PWA設定（アプリ名・アイコン・全画面起動）
 ├── service-worker.js   オフライン動作
 ├── icons/              アプリアイコン（192 / 512 / iPhone用180 / maskable）
 └── js/
     ├── main.js         登録画面のロジック
     ├── list.js         明細画面のロジック
+    ├── health.js       健康管理のロジック
+    ├── ocr.js          レシート読み取り（囲む/自動/Live Text貼り付け）
     └── chart.min.js    Chart.js本体（オフライン対応のためローカルに配置）
 ```
 
@@ -128,7 +138,7 @@ kakeibo_app/
 | `date` | `YYYY-MM-DD` |
 | `item` | 項目名 |
 | `amount` | 金額（数値） |
-| `category` | `食費` / `交通費` / `娯楽費` / `その他` |
+| `category` | `食費` / `交通費` / `娯楽費` / `健康` / `その他` |
 | `month` | `YYYY-MM`（月別表示の絞り込み用。`date` から自動生成） |
 | `satisfaction` | `good`（◎） / `ok`（○） / `bad`（△） |
 
@@ -184,8 +194,9 @@ const CACHE_NAME = "kakeibo-v2";  // → "kakeibo-v3" に変更する
 - 方針: **OCRは"下書き"と割り切り**、必ず確認画面でユーザーが修正できるようにする。
   まずは精度の出やすい **金額（数字）の抽出**から狙う
 
-### Ver3: 健康管理
-筋トレ・ストレッチ・運動記録、健康への投資額の可視化
+### Ver3: 健康管理 ✅ 実装済み（2026-07）
+筋トレ・ストレッチ・運動記録、健康への投資額の可視化 → `health.html` として実装。
+運動記録は LocalStorage の `workouts`（`{id, date, type, minutes, month}` の配列）に保存。
 
 ### Ver4: ネイティブアプリ化
 Capacitor で iOS/Android アプリ化

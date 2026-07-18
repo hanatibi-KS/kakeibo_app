@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <!-- スマホで正しい幅で表示するために必須 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>家計簿サポートアプリ - 健康管理</title>
+
+    <!-- === PWA設定（ホーム画面に追加してアプリのように使うため） === -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4CAF50">
+    <!-- iPhone用 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="家計簿">
+    <link rel="apple-touch-icon" href="icons/icon-180.png">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background: #4CAF50;
+            color: white;
+            text-align: center;
+            padding: 1.2em 0.6em;
+            font-size: clamp(1em, 4.2vw, 1.4em);
+            white-space: nowrap;
+        }
+
+        main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 30px auto;
+            gap: 25px;
+            width: 100%;
+            padding: 0 12px;
+        }
+
+        section {
+            background: white;
+            padding: 25px;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #43a047;
+        }
+
+        .link-button {
+            background: #2196F3;
+        }
+
+        .link-button:hover {
+            background: #1976D2;
+        }
+
+        /* === 今月のからだ ダッシュボード === */
+        .health-card {
+            background: linear-gradient(135deg, #ffffff, #f1f8f4);
+        }
+
+        .mascot {
+            font-size: 3em;
+            line-height: 1;
+            margin: 4px 0;
+        }
+
+        .health-message {
+            font-size: 1.05em;
+            font-weight: 600;
+            color: #333;
+            min-height: 1.4em;
+            margin: 6px 0;
+        }
+
+        .stat-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .stat {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px 4px;
+        }
+
+        .stat b {
+            display: block;
+            font-size: 1.3em;
+            color: #2e7d32;
+        }
+
+        .stat span {
+            font-size: 0.75em;
+            color: #888;
+        }
+
+        /* === 健康への投資 === */
+        .invest-amount {
+            font-size: 1.6em;
+            font-weight: 700;
+            color: #2e7d32;
+            margin: 6px 0;
+        }
+
+        .invest-note {
+            font-size: 0.9em;
+            color: #e65100;
+            font-weight: 600;
+            min-height: 1.2em;
+        }
+
+        .hint {
+            font-size: 0.82em;
+            color: #999;
+        }
+
+        /* === 履歴 === */
+        .month-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin: 10px 0;
+        }
+
+        .month-nav button {
+            width: 40px;
+            padding: 8px 0;
+            background: #2196F3;
+            margin: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        th,
+        td {
+            padding: 8px 6px;
+            border-bottom: 1px solid #ddd;
+            white-space: nowrap;
+        }
+
+        th {
+            background: #f0f0f0;
+        }
+
+        .del-btn {
+            width: auto;
+            padding: 5px 10px;
+            font-size: 0.82em;
+            margin: 0;
+            background: #f44336;
+            border-radius: 5px;
+        }
+
+        .del-btn:hover {
+            background: #d32f2f;
+        }
+    </style>
+</head>
+
+<body>
+    <header>家計簿サポートアプリ - 健康管理</header>
+    <main>
+
+        <!-- 今月のからだ ダッシュボード -->
+        <section class="health-card">
+            <h2>今月のからだ</h2>
+            <div class="mascot" id="mascot">🐱</div>
+            <p class="health-message" id="healthMessage"></p>
+            <div class="stat-row">
+                <div class="stat"><b id="statCount">0</b><span>今月の運動</span></div>
+                <div class="stat"><b id="statMinutes">0</b><span>合計（分）</span></div>
+                <div class="stat"><b id="statStreak">0</b><span>連続日数</span></div>
+            </div>
+        </section>
+
+        <!-- 運動の記録 -->
+        <section>
+            <h2>運動を記録</h2>
+            <input type="date" id="dateInput">
+            <select id="typeSelect">
+                <option value="筋トレ">筋トレ</option>
+                <option value="ストレッチ">ストレッチ</option>
+                <option value="ウォーキング">ウォーキング</option>
+                <option value="ランニング">ランニング</option>
+                <option value="その他">その他</option>
+            </select>
+            <input type="number" id="minutesInput" placeholder="時間（分）">
+            <button id="saveWorkoutBtn">記録する</button>
+            <p id="saveMessage"></p>
+        </section>
+
+        <!-- 健康への投資（家計簿とつながる、このアプリならではの機能） -->
+        <section>
+            <h2>健康への投資</h2>
+            <p class="invest-amount" id="investDisplay">0 円</p>
+            <p class="invest-note" id="costPerDisplay"></p>
+            <p class="hint">支出登録でカテゴリ「健康」を選ぶと集計されます（ジム代・プロテイン・サプリなど）</p>
+        </section>
+
+        <!-- 履歴 -->
+        <section>
+            <h2>運動の履歴</h2>
+            <div class="month-nav">
+                <button id="prevMonthBtn">←</button>
+                <span id="monthLabel" style="font-size:1.1em; font-weight:bold; min-width:80px;"></span>
+                <button id="nextMonthBtn">→</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>日付</th>
+                        <th>種類</th>
+                        <th>時間</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="workoutTableBody"></tbody>
+            </table>
+        </section>
+
+        <!-- ほかの画面へ -->
+        <section>
+            <button class="link-button" onclick="location.href='index.html'">登録画面に戻る</button>
+            <button class="link-button" onclick="location.href='list.html'">今月の明細を見る</button>
+        </section>
+
+    </main>
+
+    <script src="js/health.js"></script>
+
+    <!-- Service Worker を登録（オフライン動作を有効にする） -->
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("service-worker.js")
+                    .catch(err => console.log("SW登録失敗:", err));
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -205,6 +205,7 @@
                         <option value="食費" ${entry.category === "食費" ? "selected" : ""}>食費</option>
                         <option value="交通費" ${entry.category === "交通費" ? "selected" : ""}>交通費</option>
                         <option value="娯楽費" ${entry.category === "娯楽費" ? "selected" : ""}>娯楽費</option>
+                        <option value="健康" ${entry.category === "健康" ? "selected" : ""}>健康</option>
                         <option value="その他" ${entry.category === "その他" ? "selected" : ""}>その他</option>
                     </select><br>
                     <label>満足度：</label><br>
