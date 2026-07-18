@@ -332,6 +332,14 @@
             resize: vertical;
         }
 
+        /* Live Text用の元写真（長押しで文字コピーができる） */
+        #liveTextImage {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 8px 0;
+        }
+
         /* === 満足度セレクター === */
         .satisfaction-label {
             font-size: 0.9em;
@@ -431,15 +439,18 @@
 
             <div id="ocrResult" class="ocr-result" style="display:none;"></div>
 
-            <!-- iPhoneの「テキスト認識表示」（Apple Vision）の精度を借りる裏技 -->
-            <details class="paste-box">
+            <!-- iPhoneの「テキスト認識表示」（Apple Vision）の精度を借りる裏技。
+                 canvasではLive Textが効かないが、<img>なら画像の文字を長押しで
+                 選択・コピーできるため、元の写真をここに表示しておく -->
+            <details class="paste-box" id="pasteBox">
                 <summary>💡 iPhoneの標準機能で読み取る（高精度）</summary>
                 <p class="ocr-note" style="text-align:left; margin-top:8px; line-height:1.8;">
-                    ① 写真アプリでレシートの写真を開く<br>
-                    ② 写真の文字を長押し →「すべてを選択」→「コピー」<br>
-                    ③ 下の欄に貼り付けて「読み取る」<br>
-                    <span style="color:#aaa;">※ iPhoneに内蔵の高精度OCR（Apple Vision）が使われます</span>
+                    ① 下の写真の<b>文字を長押し</b>して選択（iPhoneの文字認識が動きます）<br>
+                    ②「コピー」をタップ<br>
+                    ③ 入力欄に貼り付けて「読み取る」<br>
+                    <span style="color:#aaa;">※ iPhone内蔵の高精度OCR（Apple Vision）が使われます。写真アプリで長押し→コピーしてもOK</span>
                 </p>
+                <img id="liveTextImage" alt="撮影したレシート（文字を長押しでコピーできます）" style="display:none;">
                 <textarea id="pasteText" rows="4" placeholder="ここにレシートの文字を貼り付け"></textarea>
                 <button id="pasteReadBtn">貼り付けた文字から読み取る</button>
             </details>

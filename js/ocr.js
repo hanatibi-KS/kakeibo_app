@@ -441,11 +441,13 @@
                          <img src="${cropUrl}" alt="読み取った範囲" style="max-width:100%; border:1px solid #ddd; border-radius:4px;">`;
             }
         } else {
-            html += `<p class="ocr-note">⚠️ 金額を読み取れませんでした。<b>画像の上で合計の金額を指で囲んで「選択した範囲を読み取る」</b>を試すか、手で入力してください。</p>`;
+            html += `<p class="ocr-note">⚠️ 金額を読み取れませんでした。<b>下の「💡iPhoneの標準機能で読み取る」で写真の文字を長押し→コピー→貼り付け</b>が確実です。合計を指で囲み直すのも有効です。</p>`;
             if (cropUrl) {
                 html += `<p class="ocr-note" style="margin-top:6px;">読もうとした部分:</p>
                          <img src="${cropUrl}" alt="読み取った範囲" style="max-width:100%; border:1px solid #ddd; border-radius:4px;">`;
             }
+            // 読めなかった時は、Live Textの案内を自動で開いて誘導する
+            if (pasteBox) pasteBox.open = true;
         }
 
         if (date) {
@@ -642,6 +644,9 @@
 
     const pasteTextArea = document.getElementById("pasteText");
     const pasteReadBtn = document.getElementById("pasteReadBtn");
+    const pasteBox = document.getElementById("pasteBox");
+    const liveTextImage = document.getElementById("liveTextImage");
+    let liveTextUrl = null;  // 表示中写真のURL（次の写真を選んだら解放する）
     if (pasteReadBtn) {
         pasteReadBtn.addEventListener("click", () => {
             const text = (pasteTextArea.value || "").trim();
@@ -691,6 +696,17 @@
 
         try {
             setProgress(30, "画像を処理しています…");
+
+            // 元の写真を<img>としても表示しておく。
+            // iPhoneのSafariは<img>内の文字を長押しで選択・コピーできる（Live Text）ので、
+            // アプリを離れずに高精度OCRが使える。canvasではこの機能が効かない。
+            if (liveTextImage) {
+                if (liveTextUrl) URL.revokeObjectURL(liveTextUrl);
+                liveTextUrl = URL.createObjectURL(file);
+                liveTextImage.src = liveTextUrl;
+                liveTextImage.style.display = "block";
+            }
+
             const img = await loadImage(file);
             // 高解像度版（切り出し読み取り用）と、表示・全体読み取り用（1600px）を分けて持つ
             originalCanvas = drawScaled(img, 3200, false);
